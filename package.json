@@ -1,0 +1,12 @@
+{
+  "name": "sangoma-headset",
+  "version": "0.0.1",
+  "description": "Interact with Sangoma branded headsets",
+  "main": "index.js",
+  "repository": "https://github.com/sangoma/sangoma-headset.git",
+  "author": "Juan Manuel Vallejo <jmvallejo@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "node-hid": "^1.1.0"
+  }
+}
