@@ -6,7 +6,13 @@
   "repository": "https://github.com/sangoma/sangoma-headset.git",
   "author": "Juan Manuel Vallejo <jmvallejo@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "test": "jest --runInBand"
+  },
   "dependencies": {
     "node-hid": "^1.1.0"
+  },
+  "devDependencies": {
+    "jest": "^25.1.0"
   }
 }

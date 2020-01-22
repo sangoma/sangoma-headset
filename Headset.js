@@ -7,17 +7,17 @@ const HEADSET_PRODUCT_ID = 17
 
 // List of buffers known to be received from the headset
 const COMMANDS = Object.freeze({
-  PLACED_ON_CRADDLE: [ 0x01, 0xff, 0x30 ].join(),
-  REMOVED_FROM_CRADLE: [ 0x01, 0xff, 0x40 ].join(),
-  HOOK_PRESSED: [ 0x06, 0x08 ].join(),
-  VOLUME_UP: [ 0x06, 0x01 ].join(),
-  VOLUME_DOWN: [ 0x06, 0x02 ].join(),
-  GENERIC_BUTTON_PRESS: [ 0x06, 0x00 ].join()
+  PLACED_ON_CRADLE: [ 0x01, 0xff, 0x30 ],
+  REMOVED_FROM_CRADLE: [ 0x01, 0xff, 0x40 ],
+  HOOK_PRESSED: [ 0x06, 0x08 ],
+  VOLUME_UP: [ 0x06, 0x01 ],
+  VOLUME_DOWN: [ 0x06, 0x02 ],
+  GENERIC_BUTTON_PRESS: [ 0x06, 0x00 ]
 })
 
 // Events
 const EVENTS = Object.freeze({
-  PLACED_ON_CRADDLE: 'placed-on-cradle',
+  PLACED_ON_CRADLE: 'placed-on-cradle',
   REMOVED_FROM_CRADLE: 'removed-from-cradle',
   HOOK_PRESSED: 'hook',
   VOLUME_UP: 'volume-up',
@@ -118,27 +118,27 @@ class Headset extends EventEmitter {
   onData (data) {
     const command = data && data.join()
     switch (command) {
-      case COMMANDS.PLACED_ON_CRADDLE:
+      case COMMANDS.PLACED_ON_CRADLE.join():
         console.log('Placed on cradle')
-        this.emit(EVENTS.PLACED_ON_CRADDLE)
+        this.emit(EVENTS.PLACED_ON_CRADLE)
         break
-      case COMMANDS.REMOVED_FROM_CRADLE:
+      case COMMANDS.REMOVED_FROM_CRADLE.join():
         console.log('Removed from cradle')
         this.emit(EVENTS.REMOVED_FROM_CRADLE)
         break
-      case COMMANDS.HOOK_PRESSED:
+      case COMMANDS.HOOK_PRESSED.join():
         console.log('Hook pressed')
         this.emit(EVENTS.HOOK_PRESSED)
         break
-      case COMMANDS.VOLUME_UP:
+      case COMMANDS.VOLUME_UP.join():
         console.log('Volume up')
         this.emit(EVENTS.VOLUME_UP)
         break
-      case COMMANDS.VOLUME_DOWN:
+      case COMMANDS.VOLUME_DOWN.join():
         console.log('Volume down')
         this.emit(EVENTS.VOLUME_DOWN)
         break
-      case COMMANDS.GENERIC_BUTTON_PRESS:
+      case COMMANDS.GENERIC_BUTTON_PRESS.join():
         // This is usually received after any
         // button press, no particular meaning
         this.emit(EVENTS.GENERIC_BUTTON_PRESS)
