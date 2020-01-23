@@ -27,7 +27,7 @@ const EVENTS = Object.freeze({
 
 // Other constants
 // Polling USB devices is expensive, defaulting to 5s for now
-const DEFAULT_CONNECTION_POLLING_MILLISECONDS = 5000
+const DEFAULT_CONNECTION_POLLING_MILLISECONDS = 10000
 
 class Headset extends EventEmitter {
   constructor () {
