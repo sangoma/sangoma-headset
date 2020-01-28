@@ -1,13 +1,14 @@
 {
   "name": "sangoma-headset",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Interact with Sangoma branded headsets",
   "main": "index.js",
   "repository": "https://github.com/sangoma/sangoma-headset.git",
   "author": "Juan Manuel Vallejo <jmvallejo@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "release": "np"
   },
   "dependencies": {
     "node-hid": "^1.1.0"
