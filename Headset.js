@@ -174,3 +174,4 @@ class Headset extends EventEmitter {
 module.exports = new Headset()
 module.exports.COMMANDS = COMMANDS
 module.exports.EVENTS = EVENTS
+module.exports.DEFAULT_CONNECTION_POLLING_MILLISECONDS = DEFAULT_CONNECTION_POLLING_MILLISECONDS

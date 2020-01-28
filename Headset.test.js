@@ -1,5 +1,9 @@
 const headset = require('./Headset')
-const { COMMANDS, EVENTS } = require('./Headset')
+const {
+  COMMANDS,
+  EVENTS,
+  DEFAULT_CONNECTION_POLLING_MILLISECONDS
+} = require('./Headset')
 
 jest.useFakeTimers()
 
@@ -26,13 +30,15 @@ describe('Headset class', () => {
       })
 
       afterAll(() => {
-        delete(headset.deviceConnections[devicePath])
+        delete headset.deviceConnections[devicePath]
       })
 
       it('removes listeners and closes device', () => {
         headset.removeDevice(devicePath)
         expect(deviceConnection.removeAllListeners).toHaveBeenCalledWith('data')
-        expect(deviceConnection.removeAllListeners).toHaveBeenCalledWith('error')
+        expect(deviceConnection.removeAllListeners).toHaveBeenCalledWith(
+          'error'
+        )
         expect(deviceConnection.removeAllListeners).toHaveBeenCalledTimes(2)
         expect(deviceConnection.close).toHaveBeenCalled()
       })
@@ -98,9 +104,12 @@ describe('Headset class', () => {
       const error = new Error(errorMessage)
       it('sets timeout for reconnection', () => {
         headset.onDeviceConnectError(devicePath, error)
-        expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 5000)
+        expect(setTimeout).toHaveBeenCalledWith(
+          expect.any(Function),
+          DEFAULT_CONNECTION_POLLING_MILLISECONDS
+        )
         expect(headset.deviceReconnectionTimeouts[devicePath]).toBeDefined()
-        delete(headset.deviceReconnectionTimeouts[devicePath])
+        delete headset.deviceReconnectionTimeouts[devicePath]
       })
     })
   })
