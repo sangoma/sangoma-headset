@@ -1,6 +1,6 @@
 {
   "name": "sangoma-headset",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Interact with Sangoma branded headsets",
   "main": "index.js",
   "repository": "https://github.com/sangoma/sangoma-headset.git",
@@ -13,6 +13,7 @@
     "node-hid": "^1.1.0"
   },
   "devDependencies": {
-    "jest": "^25.1.0"
+    "jest": "^25.1.0",
+    "np": "^5.2.1"
   }
 }
