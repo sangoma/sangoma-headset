@@ -51,3 +51,26 @@ Examples of `node-hid` in Electron:
 * [electron-hid-toy](https://github.com/todbot/electron-hid-toy) - a simple example of using `node-hid`, that will hopefully always track the latest Electron release
 * [electron-hid-test](https://github.com/todbot/electron-hid-test) - even simpler example of using `node-hid`
 * [Blink1Control2](https://github.com/todbot/Blink1Control2/) - a complete application, using webpack (e.g. see its [webpack-config.js](https://github.com/todbot/Blink1Control2/blob/master/webpack.config.js))
+
+## Electron projects that use electron-builder
+If you are using `electron-builder` there is no need for `electron-rebuild` as it is already included, sort of. Instead of `electron-rebuild` you can use:
+
+```
+"postinstall": "electron-builder install-app-deps"
+```
+
+`install-app-deps` can also take different parameters, useful for when you're building for a different OS (e.g. building for Windows from Linux or Mac), you could use something like this:
+
+```
+"rebuild-windows": "electron-builder install-app-deps --platform=win32 --arch=x64"
+```
+
+## Additional information for electron-builder on MacOS
+When building for MacOS using `hardenedRuntime: true` it is important to set the appropriate entitlements, in this case `node-hid` will require:
+
+```
+<key>com.apple.security.cs.disable-library-validation</key>
+<true/>
+```
+
+You can find a complete list of entitlements [here](https://developer.apple.com/documentation/security/hardened_runtime_entitlements)
