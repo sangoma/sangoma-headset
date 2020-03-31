@@ -1,12 +1,18 @@
 const HID = require('node-hid')
 const { EventEmitter } = require('events')
 
+// Behavior is a bit different between mac and windows
+const isMac = () => {
+  const isMac = /^darwin/.test(process.platform)
+  return isMac
+}
+
 // Vendor id and product id for current headset
 const HEADSET_VENDOR_ID = 12309
 const HEADSET_PRODUCT_ID = 17
 
 // Usage page for ringing device (Windows)
-const RINGING_DEVICE_USAGE_PAGE = '11'
+const RINGING_DEVICE_USAGE_PAGE = isMac() ? '65280' : '11'
 
 // List of buffers known to be received from the headset
 const READ_COMMANDS = Object.freeze({
@@ -233,3 +239,4 @@ module.exports.WRITE_COMMANDS = WRITE_COMMANDS
 module.exports.EVENTS = EVENTS
 module.exports.DEFAULT_CONNECTION_POLLING_MILLISECONDS = DEFAULT_CONNECTION_POLLING_MILLISECONDS
 module.exports.RINGING_DEVICE_USAGE_PAGE = RINGING_DEVICE_USAGE_PAGE
+module.exports.isMac = isMac
