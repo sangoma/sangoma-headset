@@ -11,12 +11,18 @@ const headset = require('sangoma-headset')
 headset.connect()
 ```
 
+### Call flow methods
+* `inboundCall`: Signal an inbound call and start ringing.
+* `onCall`: Signal that a call has started (either inbound or outbound).
+* `finishCall`: Signal that the on call state has finished.
+
 ### Events
 The `headset` object is an `EventEmitter` that can emit the following events:
 
 * `placed-on-cradle`: Headset is placed on cradle
 * `removed-from-cradle`: Headset is removed from cradle
-* `hook`: Hook button is pressed. Only works when headset is on, this button will turn off the headset when no sound is being played
+* `hook-off`: Hook button is pressed to take a call. It requires the call to have been signaled by calling the `inboundCall` method on the headset object.
+* `hook-on`: Hook button is pressed to finish a call. It requires the call to have been signaled by calling the `inboundCall` or `onCall` method on the headset object.
 * `volume-up`
 * `volume-down`
 * `button-pressed`: Any button is pressed
