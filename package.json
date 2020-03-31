@@ -1,6 +1,6 @@
 {
   "name": "sangoma-headset",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Interact with Sangoma branded headsets",
   "main": "index.js",
   "repository": "https://github.com/sangoma/sangoma-headset.git",
