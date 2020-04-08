@@ -1,6 +1,24 @@
 const HID = require('node-hid')
 const { EventEmitter } = require('events')
 
+// Define logger for debug
+class Logger {
+  log () {
+    if (!process.env.DEBUG) {
+      return
+    }
+    console.log(arguments)
+  }
+
+  error () {
+    if (!process.env.DEBUG) {
+      return
+    }
+    console.error(arguments)
+  }
+}
+const logger = new Logger()
+
 // Behavior is a bit different between mac and windows
 const isMac = () => {
   const isMac = /^darwin/.test(process.platform)
@@ -20,28 +38,33 @@ const READ_COMMANDS = Object.freeze({
   ON_HOOK: [0x04, 0x00],
   PLACED_ON_CRADLE: [0x01, 0xff, 0x30],
   REMOVED_FROM_CRADLE: [0x01, 0xff, 0x40],
-  PLAY_PAUSE_PRESSED: [0x06, 0x08],
   VOLUME_UP: [0x06, 0x01],
   VOLUME_DOWN: [0x06, 0x02],
-  GENERIC_BUTTON_PRESS: [0x06, 0x00]
+  GENERIC_BUTTON_PRESS: [0x06, 0x00],
+  MUTE_TOGGLE: [0x04, 0x03],
+  UNMUTE: [0x04, 0x02]
 })
 
 const WRITE_COMMANDS = Object.freeze({
   INBOUND_CALL: [0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
   ON_CALL: [0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-  FINISH_CALL: [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+  FINISH_CALL: [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+  MUTE: [0x05, 0x01, 0x01],
+  UNMUTE: [0x05, 0x01, 0x00]
 })
 
 // Events
 const EVENTS = Object.freeze({
+  RAW_COMMAND: 'raw-command',
   OFF_HOOK: 'off-hook',
   ON_HOOK: 'on-hook',
   PLACED_ON_CRADLE: 'placed-on-cradle',
   REMOVED_FROM_CRADLE: 'removed-from-cradle',
-  PLAY_PAUSE_PRESSED: 'play-pause',
   VOLUME_UP: 'volume-up',
   VOLUME_DOWN: 'volume-down',
-  GENERIC_BUTTON_PRESS: 'button-pressed'
+  GENERIC_BUTTON_PRESS: 'button-pressed',
+  MUTE_TOGGLE: 'mute-toggle',
+  UNMUTE: 'unmute'
 })
 
 // Other constants
@@ -60,9 +83,9 @@ class Headset extends EventEmitter {
   connect() {
     // Print devices
     this.deviceList = HID.devices(HEADSET_VENDOR_ID, HEADSET_PRODUCT_ID) || []
-    console.log(this.deviceList)
+    logger.log(this.deviceList)
     if (!this.deviceList || !this.deviceList.length) {
-      console.log(
+      logger.log(
         `Retrying sangoma headset connection in ${DEFAULT_CONNECTION_POLLING_MILLISECONDS}ms`
       )
       this.initialConnectionPollingTimeout = setTimeout(
@@ -100,7 +123,7 @@ class Headset extends EventEmitter {
     // Close existing device connections
     for (let devicePath in this.deviceConnections) {
       this.removeDevice(devicePath)
-      console.log(`${devicePath}: Removed device`)
+      logger.log(`${devicePath}: Removed device`)
     }
   }
 
@@ -116,7 +139,7 @@ class Headset extends EventEmitter {
       deviceConnection.on('data', this.onData.bind(this))
       deviceConnection.on('error', this.onError.bind(this, devicePath))
       this.deviceConnections[usagePage] = deviceConnection
-      console.log(`${devicePath}: Reconnected`)
+      logger.log(`${devicePath}: Reconnected`)
     } catch (e) {
       this.onDeviceConnectError(devicePath, usagePage, e)
     }
@@ -130,7 +153,7 @@ class Headset extends EventEmitter {
         this.deviceConnections[usagePage].removeAllListeners('error')
         this.deviceConnections[usagePage].close()
       } catch (e) {
-        console.error(`${usagePage}: ${e && e.message}`)
+        logger.error(`${usagePage}: ${e && e.message}`)
       }
       delete this.deviceConnections[usagePage]
     }
@@ -138,39 +161,42 @@ class Headset extends EventEmitter {
 
   onData(data) {
     const command = data && data.join()
+    if (!command) {
+      return
+    }
+    this.emit(EVENTS.RAW_COMMAND, data.toString('hex'))
     switch (command) {
       case READ_COMMANDS.OFF_HOOK.join():
-        console.log('Off hook')
+        logger.log('Off hook')
         this.emit(EVENTS.OFF_HOOK)
         break
       case READ_COMMANDS.ON_HOOK.join():
-        console.log('On hook')
+        logger.log('On hook')
         this.emit(EVENTS.ON_HOOK)
         break
       case READ_COMMANDS.PLACED_ON_CRADLE.join():
-        console.log('Placed on cradle')
+        logger.log('Placed on cradle')
         this.emit(EVENTS.PLACED_ON_CRADLE)
         break
       case READ_COMMANDS.REMOVED_FROM_CRADLE.join():
-        console.log('Removed from cradle')
+        logger.log('Removed from cradle')
         this.emit(EVENTS.REMOVED_FROM_CRADLE)
         break
-      case READ_COMMANDS.PLAY_PAUSE_PRESSED.join():
-        console.log('Play/Pause pressed')
-        this.emit(EVENTS.PLAY_PAUSE_PRESSED)
-        break
       case READ_COMMANDS.VOLUME_UP.join():
-        console.log('Volume up')
+        logger.log('Volume up')
         this.emit(EVENTS.VOLUME_UP)
         break
       case READ_COMMANDS.VOLUME_DOWN.join():
-        console.log('Volume down')
+        logger.log('Volume down')
         this.emit(EVENTS.VOLUME_DOWN)
         break
-      case READ_COMMANDS.GENERIC_BUTTON_PRESS.join():
-        // This is usually received after any
-        // button press, no particular meaning
-        this.emit(EVENTS.GENERIC_BUTTON_PRESS)
+      case READ_COMMANDS.MUTE_TOGGLE.join():
+        logger.log('Mute')
+        this.emit(EVENTS.MUTE_TOGGLE)
+        break
+      case READ_COMMANDS.UNMUTE.join():
+        logger.log('Unmute')
+        this.emit(EVENTS.UNMUTE)
         break
       default:
         // Unidentified data
@@ -184,7 +210,7 @@ class Headset extends EventEmitter {
       try {
         deviceConnection.write(WRITE_COMMANDS.INBOUND_CALL)
       } catch (e) {
-        console.error('startRinging', 'could not write to device', e.message)
+        logger.error('startRinging', 'could not write to device', e.message)
       }
     }
   }
@@ -195,7 +221,7 @@ class Headset extends EventEmitter {
       try {
         deviceConnection.write(WRITE_COMMANDS.ON_CALL)
       } catch (e) {
-        console.error('startRinging', 'could not write to device', e.message)
+        logger.error('startRinging', 'could not write to device', e.message)
       }
     }
   }
@@ -206,13 +232,35 @@ class Headset extends EventEmitter {
       try {
         deviceConnection.write(WRITE_COMMANDS.FINISH_CALL)
       } catch (e) {
-        console.error('stopRinging', 'could not write to device', e.message)
+        logger.error('stopRinging', 'could not write to device', e.message)
+      }
+    }
+  }
+
+  mute () {
+    const deviceConnection = this.deviceConnections[RINGING_DEVICE_USAGE_PAGE]
+    if (deviceConnection && !deviceConnection._paused) {
+      try {
+        deviceConnection.write(WRITE_COMMANDS.MUTE)
+      } catch (e) {
+        logger.error('mute', 'could not write to device', e.message)
+      }
+    }
+  }
+
+  unmute () {
+    const deviceConnection = this.deviceConnections[RINGING_DEVICE_USAGE_PAGE]
+    if (deviceConnection && !deviceConnection._paused) {
+      try {
+        deviceConnection.write(WRITE_COMMANDS.UNMUTE)
+      } catch (e) {
+        logger.error('mute', 'could not write to device', e.message)
       }
     }
   }
 
   onError(devicePath, usagePage, error) {
-    console.log(devicePath, error && error.message)
+    logger.log(devicePath, error && error.message)
 
     // Remove device
     this.removeDevice(usagePage)
@@ -222,12 +270,12 @@ class Headset extends EventEmitter {
   }
 
   onDeviceConnectError(devicePath, usagePage, error) {
-    console.error(devicePath + ':', error && error.message)
+    logger.error(devicePath + ':', error && error.message)
     this.deviceReconnectionTimeouts[devicePath] = setTimeout(
       this.reconnectDevice.bind(this, devicePath, usagePage),
       DEFAULT_CONNECTION_POLLING_MILLISECONDS
     )
-    console.log(
+    logger.log(
       `${devicePath}: Trying to reconnect in ${DEFAULT_CONNECTION_POLLING_MILLISECONDS}ms`
     )
   }
