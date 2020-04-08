@@ -25,7 +25,18 @@ The `headset` object is an `EventEmitter` that can emit the following events:
 * `hook-on`: Hook button is pressed to finish a call. It requires the call to have been signaled by calling the `inboundCall` or `onCall` method on the headset object.
 * `volume-up`
 * `volume-down`
-* `button-pressed`: Any button is pressed
+* `mute-toggle`: mute button is pressed
+* `unmute`
+
+## CLI
+
+This project includes a CLI that you can use for testing and debugging different commands, in order to use it you need to run the `cli` command.
+
+```
+npm install -g yarn
+yarn install
+yarn cli
+```
 
 ## Installation
 
