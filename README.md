@@ -16,6 +16,11 @@ headset.connect()
 * `onCall`: Signal that a call has started (either inbound or outbound).
 * `finishCall`: Signal that the on call state has finished.
 
+### Other methods
+These methods will only work during a call
+* `mute`: Signal the headset to turn on mute indicator.
+* `unmute`: Signal the headset to turn off mute indicator.
+
 ### Events
 The `headset` object is an `EventEmitter` that can emit the following events:
 
