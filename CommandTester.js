@@ -3,7 +3,7 @@ const clear = require('clear')
 const figlet = require('figlet')
 const prompts = require('prompts')
 const headset = require('./Headset')
-const { EVENTS } = require('./Headset')
+const { EVENTS, WRITE_COMMANDS } = require('./Headset')
 
 headset.connect()
 
@@ -23,27 +23,37 @@ const commandPrompt = {
   choices: [
     {
       title: 'Incoming call',
-      description: 'Signal the headset for an incoming call',
+      description: WRITE_COMMANDS.INBOUND_CALL
+        .map(num => num.toString(16).padStart(2, '0'))
+        .join(' '),
       value: COMMANDS.INCOMING_CALL
     },
     {
       title: 'On call',
-      description: 'Signal the headset for ongoing call',
+      description: WRITE_COMMANDS.ON_CALL
+        .map(num => num.toString(16).padStart(2, '0'))
+        .join(' '),
       value: COMMANDS.ON_CALL
     },
     {
       title: 'Mute',
-      description: 'Signal the headset to mute',
+      description: WRITE_COMMANDS.MUTE
+        .map(num => num.toString(16).padStart(2, '0'))
+        .join(' '),
       value: COMMANDS.MUTE
     },
     {
       title: 'Unmute',
-      description: 'Signal the headset to unmute',
+      description: WRITE_COMMANDS.UNMUTE
+        .map(num => num.toString(16).padStart(2, '0'))
+        .join(' '),
       value: COMMANDS.UNMUTE
     },
     {
       title: 'Finish call',
-      description: 'Signal the headset for finishing a call',
+      description: WRITE_COMMANDS.FINISH_CALL
+        .map(num => num.toString(16).padStart(2, '0'))
+        .join(' '),
       value: COMMANDS.END_CALL
     },
     {
@@ -64,7 +74,11 @@ const continuePrompt = {
 let currentPrompt = null
 const getCommand = () => {
   clear()
-  console.log(chalk.yellow(figlet.textSync('Sangoma Headset', { horizontalLayout: 'full' })))
+  console.log(
+    chalk.yellow(
+      figlet.textSync('Sangoma Headset', { horizontalLayout: 'full' })
+    )
+  )
   return prompts(commandPrompt)
     .then(({ command }) => {
       switch (command) {
@@ -105,7 +119,11 @@ const getCommand = () => {
     .then(() => {
       // Monitor headset and prompt
       clear()
-      console.log(chalk.yellow(figlet.textSync('Sangoma Headset', { horizontalLayout: 'full' })))
+      console.log(
+        chalk.yellow(
+          figlet.textSync('Sangoma Headset', { horizontalLayout: 'full' })
+        )
+      )
       return prompts(continuePrompt)
     })
     .then(() => {
@@ -122,7 +140,10 @@ for (let eventName in EVENTS) {
     continue
   }
   headset.on(EVENTS[eventName], () => {
-    console.log(chalk.green('Headset connector emits known event: '), EVENTS[eventName])
+    console.log(
+      chalk.green('Headset connector emits known event: '),
+      EVENTS[eventName]
+    )
   })
 }
 
