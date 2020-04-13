@@ -1,0 +1,6 @@
+{
+  "pkg": {
+    "assets": ["../node_modules/figlet/**/*", "../node_modules/node-hid/**/*"],
+    "scripts": []
+  }
+}
