@@ -71,10 +71,6 @@ describe('Headset class', () => {
         headset.once(EVENTS.VOLUME_DOWN, () => done())
         headset.onData(READ_COMMANDS.VOLUME_DOWN)
       })
-      it('emits generic button press', done => {
-        headset.once(EVENTS.GENERIC_BUTTON_PRESS, () => done())
-        headset.onData(READ_COMMANDS.GENERIC_BUTTON_PRESS)
-      })
     })
 
     describe('onError', () => {
