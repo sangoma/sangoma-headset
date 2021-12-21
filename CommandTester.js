@@ -3,63 +3,30 @@ const clear = require('clear')
 const figlet = require('figlet')
 const prompts = require('prompts')
 const headset = require('./Headset')
-const { EVENTS, WRITE_COMMANDS } = require('./Headset')
+const { EVENTS } = require('./lib/settings')
+const { getH20Menu } = require('./lib/prompts/H20')
+const { getRTX7113Menu } = require('./lib/prompts/RTX7113')
 
-headset.connect()
-
-const COMMANDS = Object.freeze({
-  INCOMING_CALL: 'incoming-call',
-  ON_CALL: 'on-call',
-  END_CALL: 'end-call',
-  MUTE: 'mute',
-  UNMUTE: 'unmute',
-  CLOSE: 'close'
-})
-
-const commandPrompt = {
+const selectHeadsetPrompt = {
   type: 'select',
   name: 'command',
-  message: 'Send a command to the headset',
+  message: 'Select headset model',
   choices: [
     {
-      title: 'Incoming call',
-      description: WRITE_COMMANDS.INBOUND_CALL
-        .map(num => num.toString(16).padStart(2, '0'))
-        .join(' '),
-      value: COMMANDS.INCOMING_CALL
+      title: 'RTX7113',
+      value: 'RTX7113'
     },
     {
-      title: 'On call',
-      description: WRITE_COMMANDS.ON_CALL
-        .map(num => num.toString(16).padStart(2, '0'))
-        .join(' '),
-      value: COMMANDS.ON_CALL
+      title: 'RTX7134',
+      value: 'RTX7134'
     },
     {
-      title: 'Mute',
-      description: WRITE_COMMANDS.MUTE
-        .map(num => num.toString(16).padStart(2, '0'))
-        .join(' '),
-      value: COMMANDS.MUTE
-    },
-    {
-      title: 'Unmute',
-      description: WRITE_COMMANDS.UNMUTE
-        .map(num => num.toString(16).padStart(2, '0'))
-        .join(' '),
-      value: COMMANDS.UNMUTE
-    },
-    {
-      title: 'Finish call',
-      description: WRITE_COMMANDS.FINISH_CALL
-        .map(num => num.toString(16).padStart(2, '0'))
-        .join(' '),
-      value: COMMANDS.END_CALL
+      title: 'H20',
+      value: 'H20'
     },
     {
       title: 'Exit',
-      description: 'Close the application',
-      value: COMMANDS.CLOSE
+      value: 'CLOSE'
     }
   ]
 }
@@ -71,43 +38,32 @@ const continuePrompt = {
   initial: true
 }
 
-let currentPrompt = null
-const getCommand = () => {
+const displayMainMenu = () => {
   clear()
   console.log(
     chalk.yellow(
       figlet.textSync('Sangoma Headset', { horizontalLayout: 'full' })
     )
   )
-  return prompts(commandPrompt)
+  return prompts(selectHeadsetPrompt)
     .then(({ command }) => {
       switch (command) {
-        case COMMANDS.INCOMING_CALL: {
-          headset.inboundCall()
-          console.log(chalk.green('Incoming call...'))
-          break
+        case 'RTX7113': {
+          headset.connect('RTX7113')
+          setupListeners('RTX7113')
+          return getRTX7113Menu()
         }
-        case COMMANDS.ON_CALL: {
-          headset.onCall()
-          console.log(chalk.green('On call...'))
-          break
+        case 'RTX7134': {
+          headset.connect('RTX7134')
+          setupListeners('RTX7134')
+          return
         }
-        case COMMANDS.MUTE: {
-          headset.mute()
-          console.log(chalk.green('Mute...'))
-          break
+        case 'H20': {
+          headset.connect('H20')
+          setupListeners('H20')
+          return getH20Menu()
         }
-        case COMMANDS.UNMUTE: {
-          headset.unmute()
-          console.log(chalk.green('Unmute...'))
-          break
-        }
-        case COMMANDS.END_CALL: {
-          headset.finishCall()
-          console.log(chalk.green('Finish call...'))
-          break
-        }
-        case COMMANDS.CLOSE: {
+        case 'CLOSE': {
           headset.close()
           process.exit(0)
         }
@@ -128,24 +84,27 @@ const getCommand = () => {
     })
     .then(() => {
       // Get command again
-      return getCommand()
+      return displayMainMenu()
     })
 }
 
-headset.on(EVENTS.RAW_COMMAND, command => {
-  console.log(chalk.yellow('Headset raw command: '), command)
-})
-for (let eventName in EVENTS) {
-  if (EVENTS[eventName] === EVENTS.RAW_COMMAND) {
-    continue
-  }
-  headset.on(EVENTS[eventName], () => {
-    console.log(
-      chalk.green('Headset connector emits known event: '),
-      EVENTS[eventName]
-    )
+// this should be inside a function (I guess) with the model as parameter
+const setupListeners = (model) => {
+  headset.on(EVENTS[model].RAW_COMMAND, command => {
+    console.log(chalk.yellow('Headset raw command:'), command)
+    // console.log(chalk.yellow('Length:'), command.length) // length is 128 => 64 bytes
   })
+  for (let eventName in EVENTS[model]) {
+    if (EVENTS[model][eventName] === EVENTS[model].RAW_COMMAND) {
+      continue
+    }
+    headset.on(EVENTS[model][eventName], () => {
+      console.log(
+        chalk.green('Headset connector emits known event: '), EVENTS[model][eventName]
+      )
+    })
+  }
 }
 
-// Start getting commands
-getCommand()
+// Display main menu
+displayMainMenu()

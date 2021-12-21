@@ -1,73 +1,9 @@
 const HID = require('node-hid')
 const { EventEmitter } = require('events')
+const logger = require('./lib/Logger')
+const { isMac, fillCommand } = require('./lib/util')
+const { MODELS, READ_COMMANDS, WRITE_COMMANDS, EVENTS, HEX_MODELS } = require('./lib/settings')
 
-// Define logger for debug
-class Logger {
-  log () {
-    if (!process.env.DEBUG) {
-      return
-    }
-    console.log(arguments)
-  }
-
-  error () {
-    if (!process.env.DEBUG) {
-      return
-    }
-    console.error(arguments)
-  }
-}
-const logger = new Logger()
-
-// Behavior is a bit different between mac and windows
-const isMac = () => {
-  const isMac = /^darwin/.test(process.platform)
-  return isMac
-}
-
-// Vendor id and product id for current headset
-const HEADSET_VENDOR_ID = 12309
-const HEADSET_PRODUCT_ID = 17
-
-// Usage page for ringing device (Windows)
-const RINGING_DEVICE_USAGE_PAGE = isMac() ? '65280' : '11'
-
-// List of buffers known to be received from the headset
-const READ_COMMANDS = Object.freeze({
-  OFF_HOOK: [0x04, 0x02],
-  ON_HOOK: [0x04, 0x00],
-  PLACED_ON_CRADLE: [0x01, 0xff, 0x30],
-  REMOVED_FROM_CRADLE: [0x01, 0xff, 0x40],
-  VOLUME_UP: [0x06, 0x01],
-  VOLUME_DOWN: [0x06, 0x02],
-  GENERIC_BUTTON_PRESS: [0x06, 0x00],
-  MUTE_TOGGLE: [0x04, 0x03],
-  UNMUTE: [0x04, 0x02]
-})
-
-const WRITE_COMMANDS = Object.freeze({
-  INBOUND_CALL: [0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-  ON_CALL: [0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-  FINISH_CALL: [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-  MUTE: [0x05, 0x01, 0x01],
-  UNMUTE: [0x05, 0x01, 0x00]
-})
-
-// Events
-const EVENTS = Object.freeze({
-  RAW_COMMAND: 'raw-command',
-  OFF_HOOK: 'off-hook',
-  ON_HOOK: 'on-hook',
-  PLACED_ON_CRADLE: 'placed-on-cradle',
-  REMOVED_FROM_CRADLE: 'removed-from-cradle',
-  VOLUME_UP: 'volume-up',
-  VOLUME_DOWN: 'volume-down',
-  GENERIC_BUTTON_PRESS: 'button-pressed',
-  MUTE_TOGGLE: 'mute-toggle',
-  UNMUTE: 'unmute'
-})
-
-// Other constants
 // Polling USB devices is expensive, defaulting to 5s for now
 const DEFAULT_CONNECTION_POLLING_MILLISECONDS = 10000
 
@@ -78,18 +14,36 @@ class Headset extends EventEmitter {
     this.deviceConnections = {}
     this.initialConnectionPollingTimeout = null
     this.deviceReconnectionTimeouts = {}
+    this.model = null
+    this.ringingDeviceUsagePage = null
+  }
+  
+  // 3015:0011 comes from the DSP
+  // 3015 is the vendor id and 0011 is the product id of H20 (default headset)
+  dspConnect (hexModel = '3015:0011') {
+    if (!HEX_MODELS[hexModel]) {
+      logger.log(`No headset model was found for ${hexModel}`)
+      return false
+    }
+    this.connect(HEX_MODELS[hexModel])
   }
 
-  connect() {
+  // default model: H20 
+  connect (model = 'H20') {
+    this.close() // close first
+    this.model = model
+    logger.log('>>> Headset.connect(): ', this.model);
+    this.ringingDeviceUsagePage = isMac() ?
+      MODELS[this.model].RINGING_DEVICE_USAGE_PAGE_MAC : MODELS[this.model].RINGING_DEVICE_USAGE_PAGE_WIN
     // Print devices
-    this.deviceList = HID.devices(HEADSET_VENDOR_ID, HEADSET_PRODUCT_ID) || []
-    logger.log(this.deviceList)
+    this.deviceList = HID.devices(MODELS[this.model].VENDOR_ID, MODELS[this.model].PRODUCT_ID) || []
     if (!this.deviceList || !this.deviceList.length) {
       logger.log(
-        `Retrying sangoma headset connection in ${DEFAULT_CONNECTION_POLLING_MILLISECONDS}ms`
+        `Retrying sangoma headset ${model} connection in ${DEFAULT_CONNECTION_POLLING_MILLISECONDS}ms`
       )
+      // TODO: after some retries it should stop trying to reconnect
       this.initialConnectionPollingTimeout = setTimeout(
-        this.connect.bind(this),
+        this.connect.bind(this, model),
         DEFAULT_CONNECTION_POLLING_MILLISECONDS
       )
       return
@@ -159,108 +113,118 @@ class Headset extends EventEmitter {
     }
   }
 
-  onData(data) {
-    const command = data && data.join()
-    if (!command) {
-      return
+  onData (data) {
+    let command = data && data.join()
+    if (!command) return
+    const rawCommand = data.toString('hex')
+    if (this.model != 'H20') {
+      // When using RTX, is apparently safe to remove the 5th byte because it's always changing
+      command = data.slice(0,4).join() + ',' + data.slice(5).join()
+    }    
+    let filledCommand = ''
+    // This replaces the switch/cases
+    for (let eventName in EVENTS[this.model]) {
+      if (eventName === 'RAW_COMMAND') continue
+      if (this.model === 'H20') {
+        // TODO: Maybe not compatible with H20
+        filledCommand = READ_COMMANDS[this.model][eventName]
+      } else { // for RTX models
+        filledCommand = fillCommand(READ_COMMANDS[this.model][eventName], (rawCommand.length - 2)/2, 0x00)
+      }
+      if (filledCommand && command === filledCommand.join()) {
+        // return this.emit(EVENTS[this.model][eventName])
+        logger.log('Headset.onData (event): ', EVENTS[this.model][eventName]);
+        return this.emit(EVENTS[this.model][eventName])
+      }
     }
-    this.emit(EVENTS.RAW_COMMAND, data.toString('hex'))
-    switch (command) {
-      case READ_COMMANDS.OFF_HOOK.join():
-        logger.log('Off hook')
-        this.emit(EVENTS.OFF_HOOK)
-        break
-      case READ_COMMANDS.ON_HOOK.join():
-        logger.log('On hook')
-        this.emit(EVENTS.ON_HOOK)
-        break
-      case READ_COMMANDS.PLACED_ON_CRADLE.join():
-        logger.log('Placed on cradle')
-        this.emit(EVENTS.PLACED_ON_CRADLE)
-        break
-      case READ_COMMANDS.REMOVED_FROM_CRADLE.join():
-        logger.log('Removed from cradle')
-        this.emit(EVENTS.REMOVED_FROM_CRADLE)
-        break
-      case READ_COMMANDS.VOLUME_UP.join():
-        logger.log('Volume up')
-        this.emit(EVENTS.VOLUME_UP)
-        break
-      case READ_COMMANDS.VOLUME_DOWN.join():
-        logger.log('Volume down')
-        this.emit(EVENTS.VOLUME_DOWN)
-        break
-      case READ_COMMANDS.MUTE_TOGGLE.join():
-        logger.log('Mute')
-        this.emit(EVENTS.MUTE_TOGGLE)
-        break
-      case READ_COMMANDS.UNMUTE.join():
-        logger.log('Unmute')
-        this.emit(EVENTS.UNMUTE)
-        break
-      default:
-        // Unidentified data
-        break
-    }
+    // when command isn't recognized in previous steps, emit as Raw command
+    logger.log('Headset.onData (rawCommand): ', rawCommand);
+    return this.emit(EVENTS[this.model].RAW_COMMAND, rawCommand)
   }
 
   inboundCall () {
-    const deviceConnection = this.deviceConnections[RINGING_DEVICE_USAGE_PAGE]
-    if (deviceConnection && !deviceConnection._paused) {
-      try {
-        deviceConnection.write(WRITE_COMMANDS.INBOUND_CALL)
-      } catch (e) {
-        logger.error('startRinging', 'could not write to device', e.message)
-      }
+    if (this.model === 'H20') {
+      this.invoke('inboundCall', WRITE_COMMANDS[this.model].INBOUND_CALL, 'startRinging')
+    } else {
+      logger.log('>>> Headset.inboundCall() => ringOn()')
+      this.ringOn() // assumes RTX
     }
   }
 
   onCall () {
-    const deviceConnection = this.deviceConnections[RINGING_DEVICE_USAGE_PAGE]
-    if (deviceConnection && !deviceConnection._paused) {
-      try {
-        deviceConnection.write(WRITE_COMMANDS.ON_CALL)
-      } catch (e) {
-        logger.error('startRinging', 'could not write to device', e.message)
-      }
+    if (this.model === 'H20') {
+      this.invoke('onCall', WRITE_COMMANDS[this.model].ON_CALL, 'startRinging')
+    } else {
+      logger.log('onCall(): not H20') // assumes RTX
     }
   }
 
   finishCall () {
-    const deviceConnection = this.deviceConnections[RINGING_DEVICE_USAGE_PAGE]
-    if (deviceConnection && !deviceConnection._paused) {
-      try {
-        deviceConnection.write(WRITE_COMMANDS.FINISH_CALL)
-      } catch (e) {
-        logger.error('stopRinging', 'could not write to device', e.message)
-      }
+    if (this.model === 'H20') {
+      this.invoke('finishCall', WRITE_COMMANDS[this.model].FINISH_CALL, 'stopRinging')
+    } else {
+      logger.log('finishCall(): not H20') // assumes RTX
     }
   }
 
   mute () {
-    const deviceConnection = this.deviceConnections[RINGING_DEVICE_USAGE_PAGE]
-    if (deviceConnection && !deviceConnection._paused) {
-      try {
-        deviceConnection.write(WRITE_COMMANDS.MUTE)
-      } catch (e) {
-        logger.error('mute', 'could not write to device', e.message)
-      }
+    if (this.model === 'H20') {
+      this.invoke('mute', WRITE_COMMANDS[this.model].MUTE, 'mute')
+    } else {
+      logger.log('mute(): not H20') // assumes RTX
     }
   }
 
   unmute () {
-    const deviceConnection = this.deviceConnections[RINGING_DEVICE_USAGE_PAGE]
+    if (this.model === 'H20') {
+      this.invoke('unmute', WRITE_COMMANDS[this.model].UNMUTE, 'mute')
+    } else {
+      logger.log('unmute(): not H20') // assumes RTX
+    }
+  }
+
+  // RTX Models (indications) PC -> headset
+  ping () {
+    this.invoke('ping', WRITE_COMMANDS[this.model].PING, 'ping')
+  }
+  
+  ringOn () {
+    this.invoke('ring on', WRITE_COMMANDS[this.model].RING_ON_INDICATION, 'ring on indication')
+  }
+
+  ringOff () {
+    this.invoke('ring off', WRITE_COMMANDS[this.model].RING_OFF_INDICATION, 'ring off indication')
+  }
+
+  hookOn () {
+    this.invoke('hook on', WRITE_COMMANDS[this.model].HOOK_ON_INDICATION, 'hook on indication')
+  }
+
+  hookOff () {
+    this.invoke('hook off', WRITE_COMMANDS[this.model].HOOK_OFF_INDICATION, 'hook off indication')
+  }
+
+  muteOff () {  
+    this.invoke('mute off', WRITE_COMMANDS[this.model].MUTE_OFF_INDICATION, 'mute off indication')
+  }
+
+  muteOn () {  
+    this.invoke('mute on', WRITE_COMMANDS[this.model].MUTE_ON_INDICATION, 'mute on indication')
+  }
+
+  invoke (method, command, alias) {
+    const deviceConnection = this.deviceConnections[this.ringingDeviceUsagePage]
     if (deviceConnection && !deviceConnection._paused) {
       try {
-        deviceConnection.write(WRITE_COMMANDS.UNMUTE)
+        deviceConnection.write(command)
       } catch (e) {
-        logger.error('mute', 'could not write to device', e.message)
+        logger.error(method, alias, 'could not write to device', e.message)
       }
     }
   }
 
   onError(devicePath, usagePage, error) {
-    logger.log(devicePath, error && error.message)
+    logger.error(devicePath, error && error.message)
 
     // Remove device
     this.removeDevice(usagePage)
@@ -282,9 +246,4 @@ class Headset extends EventEmitter {
 }
 
 module.exports = new Headset()
-module.exports.READ_COMMANDS = READ_COMMANDS
-module.exports.WRITE_COMMANDS = WRITE_COMMANDS
-module.exports.EVENTS = EVENTS
 module.exports.DEFAULT_CONNECTION_POLLING_MILLISECONDS = DEFAULT_CONNECTION_POLLING_MILLISECONDS
-module.exports.RINGING_DEVICE_USAGE_PAGE = RINGING_DEVICE_USAGE_PAGE
-module.exports.isMac = isMac

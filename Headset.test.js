@@ -1,11 +1,7 @@
 const headset = require('./Headset')
-const {
-  READ_COMMANDS,
-  WRITE_COMMANDS,
-  EVENTS,
-  DEFAULT_CONNECTION_POLLING_MILLISECONDS,
-  RINGING_DEVICE_USAGE_PAGE
-} = require('./Headset')
+const { DEFAULT_CONNECTION_POLLING_MILLISECONDS } = require('./Headset')
+const { READ_COMMANDS, WRITE_COMMANDS, EVENTS } = require('./lib/settings')
+const MODEL = 'H20'
 
 jest.useFakeTimers()
 
@@ -24,6 +20,8 @@ describe('Headset class', () => {
 
       beforeAll(() => {
         headset.deviceConnections[usagePage] = deviceConnection
+        headset.model = MODEL
+        headset.ringingDeviceUsagePage = '11'
       })
 
       afterEach(() => {
@@ -48,28 +46,28 @@ describe('Headset class', () => {
 
     describe('onData', () => {
       it('emits off hook', done => {
-        headset.once(EVENTS.OFF_HOOK, () => done())
-        headset.onData(READ_COMMANDS.OFF_HOOK)
+        headset.once(EVENTS[MODEL].OFF_HOOK, () => done())
+        headset.onData(READ_COMMANDS[MODEL].OFF_HOOK)
       })
       it('emits on hook', done => {
-        headset.once(EVENTS.ON_HOOK, () => done())
-        headset.onData(READ_COMMANDS.ON_HOOK)
+        headset.once(EVENTS[MODEL].ON_HOOK, () => done())
+        headset.onData(READ_COMMANDS[MODEL].ON_HOOK)
       })
       it('emits placed on craddle', done => {
-        headset.once(EVENTS.PLACED_ON_CRADLE, () => done())
-        headset.onData(READ_COMMANDS.PLACED_ON_CRADLE)
+        headset.once(EVENTS[MODEL].PLACED_ON_CRADLE, () => done())
+        headset.onData(READ_COMMANDS[MODEL].PLACED_ON_CRADLE)
       })
       it('emits removed from craddle', done => {
-        headset.once(EVENTS.REMOVED_FROM_CRADLE, () => done())
-        headset.onData(READ_COMMANDS.REMOVED_FROM_CRADLE)
+        headset.once(EVENTS[MODEL].REMOVED_FROM_CRADLE, () => done())
+        headset.onData(READ_COMMANDS[MODEL].REMOVED_FROM_CRADLE)
       })
       it('emits volume up', done => {
-        headset.once(EVENTS.VOLUME_UP, () => done())
-        headset.onData(READ_COMMANDS.VOLUME_UP)
+        headset.once(EVENTS[MODEL].VOLUME_UP, () => done())
+        headset.onData(READ_COMMANDS[MODEL].VOLUME_UP)
       })
       it('emits volume down', done => {
-        headset.once(EVENTS.VOLUME_DOWN, () => done())
-        headset.onData(READ_COMMANDS.VOLUME_DOWN)
+        headset.once(EVENTS[MODEL].VOLUME_DOWN, () => done())
+        headset.onData(READ_COMMANDS[MODEL].VOLUME_DOWN)
       })
     })
 
@@ -122,28 +120,29 @@ describe('Headset class', () => {
         write: jest.fn(),
         _paused: false
       }
-      headset.deviceConnections[RINGING_DEVICE_USAGE_PAGE] = deviceConnection
-
+      headset.model = MODEL
+      headset.ringingDeviceUsagePage = '11'
+      headset.deviceConnections[headset.ringingDeviceUsagePage] = deviceConnection
       afterEach(() => deviceConnection.write.mockClear())
 
       describe('inboundCall', () => {
         it('writes the appropriate command', () => {
           headset.inboundCall()
-          expect(deviceConnection.write).toHaveBeenCalledWith(WRITE_COMMANDS.INBOUND_CALL)
+          expect(deviceConnection.write).toHaveBeenCalledWith(WRITE_COMMANDS[MODEL].INBOUND_CALL)
         })
       })
 
       describe('onCall', () => {
         it('writes the appropriate command', () => {
           headset.onCall()
-          expect(deviceConnection.write).toHaveBeenCalledWith(WRITE_COMMANDS.ON_CALL)
+          expect(deviceConnection.write).toHaveBeenCalledWith(WRITE_COMMANDS[MODEL].ON_CALL)
         })
       })
 
       describe('finishCall', () => {
         it('writes the appropriate command', () => {
           headset.finishCall()
-          expect(deviceConnection.write).toHaveBeenCalledWith(WRITE_COMMANDS.FINISH_CALL)
+          expect(deviceConnection.write).toHaveBeenCalledWith(WRITE_COMMANDS[MODEL].FINISH_CALL)
         })
       })
     })

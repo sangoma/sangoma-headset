@@ -13,7 +13,8 @@
     "release": "np"
   },
   "dependencies": {
-    "node-hid": "^1.1.0"
+    "node-hid": "^1.1.0",
+    "simple-node-logger": "^21.8.12"
   },
   "devDependencies": {
     "chalk": "^4.0.0",
